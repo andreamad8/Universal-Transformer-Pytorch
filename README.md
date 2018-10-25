@@ -1,7 +1,7 @@
 # Universal-Transformer-Pytorch
 Simple and self-contained implementation of the [Universal Transformer](https://arxiv.org/abs/1807.03819) (Dehghani, 2018) in Pytorch. Please open issues if you find bugs, and send pull request if you want to contribuite. 
 
-Check Oriol Vinyals GIF. 
+![](file.gif)
 [https://twitter.com/OriolVinyalsML/status/1017523208059260929](https://twitter.com/OriolVinyalsML/status/1017523208059260929)
 
 ## Universal Transformer 
