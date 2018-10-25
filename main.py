@@ -70,6 +70,7 @@ def main(config):
                     filter_size=config.filter,
                     act=config.act)
     print(model)
+    print("ACT",config.act)
     if(config.cuda): model.cuda()           
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(),lr=config.lr)
