@@ -205,6 +205,8 @@ class Decoder(nn.Module):
         return x
 
 
+
+### CONVERTED FROM https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/models/research/universal_transformer_util.py#L1062
 class ACT_basic(nn.Module):
     def __init__(self,hidden_size):
         super(ACT_basic, self).__init__()
