@@ -19,6 +19,8 @@ def parse_config():
     parser.add_argument("--max_epochs", type=int, default=20)
     parser.add_argument("--emb", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--act", action="store_true")
+    parser.add_argument("--act_loss_weight", type=float, default=0.001)
 
     
     return parser.parse_args()
@@ -65,7 +67,8 @@ def main(config):
                     num_heads=config.heads, 
                     total_key_depth=config.depth, 
                     total_value_depth=config.depth,
-                    filter_size=config.filter)
+                    filter_size=config.filter,
+                    act=config.act)
     print(model)
     if(config.cuda): model.cuda()           
     criterion = nn.CrossEntropyLoss()
@@ -85,6 +88,13 @@ def main(config):
         opt.zero_grad()
         pred_prob = model(story, query)
         loss = criterion(pred_prob[0], answer)
+        if(config.act):
+            R_t = pred_prob[2][0] 
+            N_t = pred_prob[2][1]
+            p_t = R_t + N_t
+            avg_p_t = torch.sum(torch.sum(p_t,dim=1)/p_t.size(1))/p_t.size(0)
+            loss += config.act_loss_weight * avg_p_t.item()
+
         loss.backward()
         opt.step()
 
