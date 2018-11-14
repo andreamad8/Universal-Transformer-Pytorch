@@ -1,8 +1,8 @@
 # Universal-Transformer-Pytorch
 Simple and self-contained implementation of the [Universal Transformer](https://arxiv.org/abs/1807.03819) (Dehghani, 2018) in Pytorch. Please open issues if you find bugs, and send pull request if you want to contribuite. 
 
-Check Oriol Vinyals GIF. 
-[https://twitter.com/OriolVinyalsML/status/1017523208059260929](https://twitter.com/OriolVinyalsML/status/1017523208059260929)
+![](file.gif)
+GIF taken from: [https://twitter.com/OriolVinyalsML/status/1017523208059260929](https://twitter.com/OriolVinyalsML/status/1017523208059260929)
 
 ## Universal Transformer 
 The basic Transformer model has been taken from [https://github.com/kolloldas/torchnlp](https://github.com/kolloldas/torchnlp). For now it has been implemented:
