@@ -269,5 +269,8 @@ class ACT_basic(nn.Module):
 
             # update running part in the weighted state and keep the rest
             previous_state = ((state * update_weights.unsqueeze(-1)) + (previous_state * (1 - update_weights.unsqueeze(-1))))
+            ## previous_state is actually the new_state at end of hte loop 
+            ## to save a line I assigned to previous_state so in the next 
+            ## iteration is correct. Notice that indeed we return previous_state
             step+=1
-        return state, (remainders,n_updates)
+        return previous_state, (remainders,n_updates)
