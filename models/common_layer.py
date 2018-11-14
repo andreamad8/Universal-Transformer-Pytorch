@@ -42,16 +42,15 @@ class EncoderLayer(nn.Module):
         self.dropout = nn.Dropout(layer_dropout)
         self.layer_norm_mha = LayerNorm(hidden_size)
         self.layer_norm_ffn = LayerNorm(hidden_size)
-        self.layer_norm_end = LayerNorm(hidden_size)
         
-    def forward(self, inputs):
+    def forward(self, inputs, src_mask):
         x = inputs
         
         # Layer Normalization
         x_norm = self.layer_norm_mha(x)
         
         # Multi-head attention
-        y = self.multi_head_attention(x_norm, x_norm, x_norm)
+        y = self.multi_head_attention(x_norm, x_norm, x_norm, src_mask)
         
         # Dropout and residual
         x = self.dropout(x + y)
@@ -65,7 +64,6 @@ class EncoderLayer(nn.Module):
         # Dropout and residual
         y = self.dropout(x + y)
         
-        y = self.layer_norm_end(y)
         return y
 
 class DecoderLayer(nn.Module):
@@ -105,10 +103,9 @@ class DecoderLayer(nn.Module):
         self.layer_norm_mha_dec = LayerNorm(hidden_size)
         self.layer_norm_mha_enc = LayerNorm(hidden_size)
         self.layer_norm_ffn = LayerNorm(hidden_size)
-        self.layer_norm_end = LayerNorm(hidden_size)
 
         
-    def forward(self, inputs):
+    def forward(self, inputs, src_mask):
         """
         NOTE: Inputs is a tuple consisting of decoder inputs and encoder output
         """
@@ -141,7 +138,6 @@ class DecoderLayer(nn.Module):
         # Dropout and residual after positionwise feed forward layer
         y = self.dropout(x + y)
         
-        y = self.layer_norm_end(y)
         
         # Return encoder outputs as well to work with nn.Sequential
         return y, encoder_outputs
@@ -213,7 +209,7 @@ class MultiHeadAttention(nn.Module):
         shape = x.shape
         return x.permute(0, 2, 1, 3).contiguous().view(shape[0], shape[2], shape[3]*self.num_heads)
         
-    def forward(self, queries, keys, values):
+    def forward(self, queries, keys, values, src_mask=None):
         
         # Do a linear for each component
         queries = self.query_linear(queries)
@@ -231,6 +227,10 @@ class MultiHeadAttention(nn.Module):
         # Combine queries and keys
         logits = torch.matmul(queries, keys.permute(0, 1, 3, 2))
         
+
+        if src_mask is not None:
+            logits = logits.masked_fill(src_mask, -np.inf)
+            
         # Add bias to mask future values
         if self.bias_mask is not None:
             logits += self.bias_mask[:, :, :logits.shape[-2], :logits.shape[-1]].type_as(logits.data)
@@ -368,36 +368,6 @@ def _gen_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4)
 
     return torch.from_numpy(signal).type(torch.FloatTensor)
 
-
-class OutputLayer(nn.Module):
-    """
-    Abstract base class for output layer. 
-    Handles projection to output labels
-    """
-    def __init__(self, hidden_size, output_size):
-        super(OutputLayer, self).__init__()
-        self.output_size = output_size
-        self.output_projection = nn.Linear(hidden_size, output_size)
-
-    def loss(self, hidden, labels):
-        raise NotImplementedError('Must implement {}.loss'.format(self.__class__.__name__))
-
-
-class SoftmaxOutputLayer(OutputLayer):
-    """
-    Implements a softmax based output layer
-    """
-    def forward(self, hidden):
-        logits = self.output_projection(hidden)
-        probs = F.softmax(logits, -1)
-        _, predictions = torch.max(probs, dim=-1)
-
-        return predictions
-
-    def loss(self, hidden, labels):
-        logits = self.output_projection(hidden)
-        log_probs = F.log_softmax(logits, -1)
-        return F.nll_loss(log_probs.view(-1, self.output_size), labels.view(-1))
 
 def position_encoding(sentence_size, embedding_dim):
     encoding = np.ones((embedding_dim, sentence_size), dtype=np.float32)

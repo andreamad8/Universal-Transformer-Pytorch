@@ -114,6 +114,10 @@ class Encoder(nn.Module):
             self.act_fn = ACT_basic(hidden_size)
 
     def forward(self, inputs):
+
+        ## masking for padding
+
+        slf_attn_mask = get_attn_key_pad_mask(seq_k=inputs, seq_q=inputs)
         #Add input dropout
         x = self.input_dropout(inputs)
 
@@ -122,15 +126,24 @@ class Encoder(nn.Module):
             x = self.embedding_proj(x)
 
         if(self.act):
-            x, (remainders,n_updates) = self.act_fn(x, inputs, self.enc, self.timing_signal, self.position_signal, self.num_layers)
+            x, (remainders,n_updates) = self.act_fn(x, inputs, self.enc, self.timing_signal, self.position_signal, self.num_layers, src_mask=slf_attn_mask)
             return x, (remainders,n_updates)
         else:
             for l in range(self.num_layers):
                 x += self.timing_signal[:, :inputs.shape[1], :].type_as(inputs.data)
                 x += self.position_signal[:, l, :].unsqueeze(1).repeat(1,inputs.shape[1],1).type_as(inputs.data)
-                x = self.enc(x)
+                x = self.enc(x,slf_attn_mask)
             return x, None
 
+def get_attn_key_pad_mask(seq_k, seq_q):
+    ''' For masking out the padding part of key sequence. '''
+    # Expand to fit the shape of key query attention matrix.
+    len_q = seq_q.size(1)
+    PAD = 0
+    padding_mask = seq_k.eq(PAD)
+    padding_mask = padding_mask.unsqueeze(1).expand(-1, len_q, -1)  # b x lq x lk
+
+    return padding_mask
 
 class Decoder(nn.Module):
     """
@@ -215,7 +228,7 @@ class ACT_basic(nn.Module):
         self.p.bias.data.fill_(1) 
         self.threshold = 1 - 0.1
 
-    def forward(self, state, inputs, fn, time_enc, pos_enc, max_hop, encoder_output=None):
+    def forward(self, state, inputs, fn, time_enc, pos_enc, max_hop, encoder_output=None, src_mask=None):
         # init_hdd
         ## [B, S]
         halting_probability = torch.zeros(inputs.shape[0],inputs.shape[1]).cuda()
