@@ -43,14 +43,14 @@ class EncoderLayer(nn.Module):
         self.layer_norm_mha = LayerNorm(hidden_size)
         self.layer_norm_ffn = LayerNorm(hidden_size)
         
-    def forward(self, inputs, src_mask):
+    def forward(self, inputs):
         x = inputs
         
         # Layer Normalization
         x_norm = self.layer_norm_mha(x)
         
         # Multi-head attention
-        y = self.multi_head_attention(x_norm, x_norm, x_norm, src_mask)
+        y = self.multi_head_attention(x_norm, x_norm, x_norm)
         
         # Dropout and residual
         x = self.dropout(x + y)
@@ -105,7 +105,7 @@ class DecoderLayer(nn.Module):
         self.layer_norm_ffn = LayerNorm(hidden_size)
 
         
-    def forward(self, inputs, src_mask):
+    def forward(self, inputs):
         """
         NOTE: Inputs is a tuple consisting of decoder inputs and encoder output
         """
@@ -137,7 +137,6 @@ class DecoderLayer(nn.Module):
         
         # Dropout and residual after positionwise feed forward layer
         y = self.dropout(x + y)
-        
         
         # Return encoder outputs as well to work with nn.Sequential
         return y, encoder_outputs
