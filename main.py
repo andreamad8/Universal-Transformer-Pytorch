@@ -91,7 +91,10 @@ def main(config):
     for b in train_iter:
         story, query, answer = b.story,b.query,b.answer.squeeze()
         if(config.cuda): story, query, answer = story.cuda(), query.cuda(), answer.cuda()
-        opt.zero_grad()
+        if(config.noam):
+            opt.optimizer.zero_grad()
+        else:
+            opt.zero_grad()
         pred_prob = model(story, query)
         loss = criterion(pred_prob[0], answer)
         if(config.act):
