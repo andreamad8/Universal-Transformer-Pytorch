@@ -2,27 +2,29 @@ import argparse
 from torchtext import datasets
 from torchtext.datasets.babi import BABI20Field
 from models.UTransformer import BabiUTransformer
+from models.common_layer import NoamOpt
 import torch.nn as nn
 import torch
+import numpy as np
+from copy import deepcopy
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--save_path", type=str, default="save/")
     parser.add_argument("--task", type=int, default=1)
-    parser.add_argument("--run_avg", type=int, default=1)
+    parser.add_argument("--run_avg", type=int, default=5)
     parser.add_argument("--heads", type=int, default=2)
     parser.add_argument("--depth", type=int, default=40)
     parser.add_argument("--filter", type=int, default=50)
-    parser.add_argument("--max_hops", type=int, default=3)
+    parser.add_argument("--max_hops", type=int, default=6)
     parser.add_argument("--batch_size", type=int, default=100)
-    parser.add_argument("--max_epochs", type=int, default=20)
     parser.add_argument("--emb", type=int, default=128)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--act", action="store_true")
     parser.add_argument("--act_loss_weight", type=float, default=0.001)
+    parser.add_argument("--noam", action="store_true")
 
-    
     return parser.parse_args()
 
 def get_babi_vocab(task):
@@ -31,7 +33,7 @@ def get_babi_vocab(task):
                                          tenK=True, only_supporting=False)
     text.build_vocab(train)
     vocab_len = len(text.vocab.freqs) 
-    print("VOCAB LEN:",vocab_len )
+    # print("VOCAB LEN:",vocab_len )
     return vocab_len + 1
 
 def evaluate(model, criterion, loader):
@@ -69,14 +71,17 @@ def main(config):
                     total_value_depth=config.depth,
                     filter_size=config.filter,
                     act=config.act)
-    print(model)
-    print("ACT",config.act)
-    if(config.cuda): model.cuda()           
+    # print(model)
+    # print("ACT",config.act)
+    if(config.cuda): model.cuda()       
+    
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(),lr=config.lr)
+    if(config.noam):
+        opt = NoamOpt(config.hidden_dim, 1, 4000, torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
-    acc_val, loss_val = evaluate(model, criterion, val_iter)
-    print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
+    # acc_val, loss_val = evaluate(model, criterion, val_iter)
+    # print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
     correct = 0
     loss_nb = 0
     cnt_batch = 0
@@ -107,29 +112,35 @@ def main(config):
         if(cnt_batch % 100 == 0):
             acc = correct.item() / float(cnt_batch*config.batch_size)
             loss_nb = loss_nb / float(cnt_batch*config.batch_size)
-            print("TRN ACC:{:.4f}\tTRN LOSS:{:.4f}".format(acc, loss_nb))
+            # print("TRN ACC:{:.4f}\tTRN LOSS:{:.4f}".format(acc, loss_nb))
 
             acc_val, loss_val = evaluate(model, criterion, val_iter)
-            print("VAL ACC:{:.4f}\tVAL LOSS:{:.4f}".format(acc_val, loss_val))
+            # print("VAL ACC:{:.4f}\tVAL LOSS:{:.4f}".format(acc_val, loss_val))
 
             if(acc_val > avg_best):
                 avg_best = acc_val
+                weights_best = deepcopy(model.state_dict())
                 cnt = 0
             else:
                 cnt += 1
-            if(cnt == 10): break
+            if(cnt == 15): break
             if(avg_best == 1.0): break 
 
             correct = 0
             loss_nb = 0
             cnt_batch = 0
 
-    acc_val, loss_val = evaluate(model, criterion, test_iter)
-    print("TST ACC:{:.4f}\tTST LOSS:{:.4f}".format(acc_val, loss_val))  
+    model.load_state_dict({ name: weights_best[name] for name in weights_best })
+    acc_test, loss_test = evaluate(model, criterion, test_iter)
+    # print("TST ACC:{:.4f}\tTST LOSS:{:.4f}".format(acc_val, loss_val))  
+    return acc_test
 
-    
 if __name__ == "__main__":
     config = parse_config()
-    main(config)
-
+    for t in range(1,21):
+        config.task = t
+        acc = []
+        for i in range(config.run_avg):
+            acc.append(main(config))
+        print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Acc:",np.mean(acc),"Std:",np.std(acc))
 
