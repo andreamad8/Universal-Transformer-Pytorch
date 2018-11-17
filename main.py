@@ -78,7 +78,7 @@ def main(config):
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(),lr=config.lr)
     if(config.noam):
-        opt = NoamOpt(config.hidden_dim, 1, 4000, torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
     # acc_val, loss_val = evaluate(model, criterion, val_iter)
     # print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
