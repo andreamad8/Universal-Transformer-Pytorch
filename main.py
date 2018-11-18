@@ -40,17 +40,19 @@ def get_babi_vocab(task):
 
 def evaluate(model, criterion, loader):
     model.eval()
-    acc = 0
-    loss = 0
+    acc = []
+    loss = []
     for b in loader:
         story, query, answer = b.story,b.query,b.answer.squeeze()
         if(config.cuda): story, query, answer = story.cuda(), query.cuda(), answer.cuda()
         pred_prob = model(story, query)
-        loss += criterion(pred_prob[0], answer).item() 
+        loss.append(criterion(pred_prob[0], answer).item()) 
         pred = pred_prob[1].data.max(1)[1] # max func return (max, argmax)
-        acc += pred.eq(answer.data).cpu().sum().item() 
-    acc  = acc / len(loader.dataset)
-    loss = loss / len(loader.dataset)
+        acc.append( pred.eq(answer.data).cpu().numpy() ) 
+
+    acc = np.concatenate(acc)
+    acc  = np.mean(acc)
+    loss = np.mean(loss)
     return acc,loss
 
 def main(config):
@@ -79,15 +81,16 @@ def main(config):
     if(config.cuda): model.cuda()       
     
     criterion = nn.CrossEntropyLoss()
-    opt = torch.optim.Adam(model.parameters(),lr=config.lr)
     if(config.noam):
-        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=config.lr, betas=(0.9, 0.98), eps=1e-9))
+        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=0., betas=(0.9, 0.98), eps=1e-9))
+    else:
+        opt = torch.optim.Adam(model.parameters(),lr=config.lr)
 
     if(config.verbose):
         acc_val, loss_val = evaluate(model, criterion, val_iter)
         print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
-    correct = 0
-    loss_nb = 0
+    correct = []
+    loss_nb = []
     cnt_batch = 0
     avg_best = 0
     cnt = 0
@@ -112,13 +115,12 @@ def main(config):
         opt.step()
 
         ## LOG
-        loss_nb += loss.item()
+        loss_nb.append(loss.item())
         pred = pred_prob[1].data.max(1)[1] # max func return (max, argmax)
-        correct += pred.eq(answer.data).cpu().sum()
-        cnt_batch += 1
+        correct.append(np.mean(pred.eq(answer.data).cpu().numpy()))
         if(cnt_batch % 10 == 0):
-            acc = correct.item() / float(cnt_batch*config.batch_size)
-            loss_nb = loss_nb / float(cnt_batch*config.batch_size)
+            acc = np.mean(correct)
+            loss_nb = np.mean(loss_nb)
             if(config.verbose):
                 print("TRN ACC:{:.4f}\tTRN LOSS:{:.4f}".format(acc, loss_nb))
 
@@ -135,9 +137,9 @@ def main(config):
             if(cnt == 15): break
             if(avg_best == 1.0): break 
 
-            correct = 0
-            loss_nb = 0
-            cnt_batch = 0
+            correct = []
+            loss_nb = []
+
 
     model.load_state_dict({ name: weights_best[name] for name in weights_best })
     acc_test, loss_test = evaluate(model, criterion, test_iter)
