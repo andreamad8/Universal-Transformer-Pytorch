@@ -116,7 +116,7 @@ def main(config):
         pred = pred_prob[1].data.max(1)[1] # max func return (max, argmax)
         correct += pred.eq(answer.data).cpu().sum()
         cnt_batch += 1
-        if(cnt_batch % 100 == 0):
+        if(cnt_batch % 10 == 0):
             acc = correct.item() / float(cnt_batch*config.batch_size)
             loss_nb = loss_nb / float(cnt_batch*config.batch_size)
             if(config.verbose):
