@@ -24,6 +24,8 @@ def parse_config():
     parser.add_argument("--act", action="store_true")
     parser.add_argument("--act_loss_weight", type=float, default=0.001)
     parser.add_argument("--noam", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+
 
     return parser.parse_args()
 
@@ -71,8 +73,9 @@ def main(config):
                     total_value_depth=config.depth,
                     filter_size=config.filter,
                     act=config.act)
-    # print(model)
-    # print("ACT",config.act)
+    if(config.verbose):
+        print(model)
+        print("ACT",config.act)
     if(config.cuda): model.cuda()       
     
     criterion = nn.CrossEntropyLoss()
@@ -80,8 +83,9 @@ def main(config):
     if(config.noam):
         opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=config.lr, betas=(0.9, 0.98), eps=1e-9))
 
-    # acc_val, loss_val = evaluate(model, criterion, val_iter)
-    # print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
+    if(config.verbose):
+        acc_val, loss_val = evaluate(model, criterion, val_iter)
+        print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
     correct = 0
     loss_nb = 0
     cnt_batch = 0
@@ -115,10 +119,12 @@ def main(config):
         if(cnt_batch % 100 == 0):
             acc = correct.item() / float(cnt_batch*config.batch_size)
             loss_nb = loss_nb / float(cnt_batch*config.batch_size)
-            # print("TRN ACC:{:.4f}\tTRN LOSS:{:.4f}".format(acc, loss_nb))
+            if(config.verbose):
+                print("TRN ACC:{:.4f}\tTRN LOSS:{:.4f}".format(acc, loss_nb))
 
             acc_val, loss_val = evaluate(model, criterion, val_iter)
-            # print("VAL ACC:{:.4f}\tVAL LOSS:{:.4f}".format(acc_val, loss_val))
+            if(config.verbose):
+                print("VAL ACC:{:.4f}\tVAL LOSS:{:.4f}".format(acc_val, loss_val))
 
             if(acc_val > avg_best):
                 avg_best = acc_val
@@ -135,7 +141,8 @@ def main(config):
 
     model.load_state_dict({ name: weights_best[name] for name in weights_best })
     acc_test, loss_test = evaluate(model, criterion, test_iter)
-    # print("TST ACC:{:.4f}\tTST LOSS:{:.4f}".format(acc_val, loss_val))  
+    if(config.verbose):
+        print("TST ACC:{:.4f}\tTST LOSS:{:.4f}".format(acc_val, loss_val))  
     return acc_test
 
 if __name__ == "__main__":
@@ -145,5 +152,5 @@ if __name__ == "__main__":
     acc = []
     for i in range(config.run_avg):
         acc.append(main(config))
-    print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Acc:",np.mean(acc),"Std:",np.std(acc))
+    print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Max:",max(acc),"Mean:",np.mean(acc),"Std:",np.std(acc))
 
