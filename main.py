@@ -13,14 +13,14 @@ def parse_config():
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--save_path", type=str, default="save/")
     parser.add_argument("--task", type=int, default=1)
-    parser.add_argument("--run_avg", type=int, default=5)
+    parser.add_argument("--run_avg", type=int, default=1)
     parser.add_argument("--heads", type=int, default=2)
     parser.add_argument("--depth", type=int, default=40)
     parser.add_argument("--filter", type=int, default=50)
     parser.add_argument("--max_hops", type=int, default=6)
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--emb", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=1)
     parser.add_argument("--act", action="store_true")
     parser.add_argument("--act_loss_weight", type=float, default=0.001)
     parser.add_argument("--noam", action="store_true")
@@ -78,7 +78,7 @@ def main(config):
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(model.parameters(),lr=config.lr)
     if(config.noam):
-        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=config.lr, betas=(0.9, 0.98), eps=1e-9))
 
     # acc_val, loss_val = evaluate(model, criterion, val_iter)
     # print("RAND_VAL ACC:{:.4f}\t RAND_VAL LOSS:{:.4f}".format(acc_val, loss_val))
@@ -140,10 +140,10 @@ def main(config):
 
 if __name__ == "__main__":
     config = parse_config()
-    for t in range(1,21):
-        config.task = t
-        acc = []
-        for i in range(config.run_avg):
-            acc.append(main(config))
-        print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Acc:",np.mean(acc),"Std:",np.std(acc))
+    # for t in range(1,21):
+    config.task = 17
+    acc = []
+    for i in range(config.run_avg):
+        acc.append(main(config))
+    print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Acc:",np.mean(acc),"Std:",np.std(acc))
 
