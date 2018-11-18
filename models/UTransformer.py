@@ -29,7 +29,7 @@ class BabiUTransformer(nn.Module):
         self.W = nn.Linear(self.embedding_dim,num_vocab)
         self.softmax = nn.Softmax(dim=1)
         ## POSITIONAL MASK
-        self.mask = nn.Parameter(I.constant_(torch.empty(10, self.embedding_dim), 1))
+        self.mask = nn.Parameter(I.constant_(torch.empty(11, self.embedding_dim), 1))
 
     def forward(self,story, query):
 
