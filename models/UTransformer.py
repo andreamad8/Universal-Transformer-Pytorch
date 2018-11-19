@@ -27,6 +27,11 @@ class BabiUTransformer(nn.Module):
                                 attention_dropout=attention_dropout, relu_dropout=relu_dropout, use_mask=False, act=act)
 
         self.W = nn.Linear(self.embedding_dim,num_vocab)
+
+
+        # Share the weight matrix between target word embedding & the final logit dense layer
+        self.W.weight = self.emb.weight
+        
         self.softmax = nn.Softmax(dim=1)
         ## POSITIONAL MASK
         self.mask = nn.Parameter(I.constant_(torch.empty(11, self.embedding_dim), 1))

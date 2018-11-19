@@ -13,21 +13,20 @@ def parse_config():
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--save_path", type=str, default="save/")
     parser.add_argument("--task", type=int, default=1)
-    parser.add_argument("--run_avg", type=int, default=1)
+    parser.add_argument("--run_avg", type=int, default=10)
     parser.add_argument("--heads", type=int, default=2)
-    parser.add_argument("--depth", type=int, default=40)
-    parser.add_argument("--filter", type=int, default=50)
+    parser.add_argument("--depth", type=int, default=128)
+    parser.add_argument("--filter", type=int, default=128)
     parser.add_argument("--max_hops", type=int, default=6)
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--emb", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=1)
+    parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--act", action="store_true")
     parser.add_argument("--act_loss_weight", type=float, default=0.001)
     parser.add_argument("--noam", action="store_true")
     parser.add_argument("--verbose", action="store_true")
-
-
     return parser.parse_args()
+
 
 def get_babi_vocab(task):
     text = BABI20Field(70)
@@ -62,7 +61,7 @@ def main(config):
                                                             memory_size=70, 
                                                             task=config.task, 
                                                             joint=False,
-                                                            tenK=True, 
+                                                            tenK=False, 
                                                             only_supporting=False, 
                                                             sort=False, 
                                                             shuffle=True)
@@ -82,7 +81,7 @@ def main(config):
     
     criterion = nn.CrossEntropyLoss()
     if(config.noam):
-        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=0., betas=(0.9, 0.98), eps=1e-9))
+        opt = NoamOpt(config.emb, 1, 4000, torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
     else:
         opt = torch.optim.Adam(model.parameters(),lr=config.lr)
 
@@ -118,6 +117,7 @@ def main(config):
         loss_nb.append(loss.item())
         pred = pred_prob[1].data.max(1)[1] # max func return (max, argmax)
         correct.append(np.mean(pred.eq(answer.data).cpu().numpy()))
+        cnt_batch += 1
         if(cnt_batch % 10 == 0):
             acc = np.mean(correct)
             loss_nb = np.mean(loss_nb)
@@ -134,11 +134,12 @@ def main(config):
                 cnt = 0
             else:
                 cnt += 1
-            if(cnt == 15): break
+            if(cnt == 45): break
             if(avg_best == 1.0): break 
 
             correct = []
             loss_nb = []
+            cnt_batch = 0
 
 
     model.load_state_dict({ name: weights_best[name] for name in weights_best })
@@ -149,10 +150,10 @@ def main(config):
 
 if __name__ == "__main__":
     config = parse_config()
-    # for t in range(1,21):
-    config.task = 17
-    acc = []
-    for i in range(config.run_avg):
-        acc.append(main(config))
-    print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Max:",max(acc),"Mean:",np.mean(acc),"Std:",np.std(acc))
+    for t in range(1,21):
+        config.task = t
+        acc = []
+        for i in range(config.run_avg):
+            acc.append(main(config))
+        print("Noam",config.noam,"ACT",config.act,"Task:",config.task,"Max:",max(acc),"Mean:",np.mean(acc),"Std:",np.std(acc))
 
